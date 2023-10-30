@@ -53,7 +53,7 @@ class Q1Agent(ValueEstimationAgent):
         self.discount = float(discount)
         self.iterations = int(iterations)
 
-        if pretrained_values:
+        if pretrained_values is not None:
             self.values = np.loadtxt(pretrained_values)
         else:
             self.values = None
@@ -73,11 +73,18 @@ class Q1Agent(ValueEstimationAgent):
             print("solving MDP")
             possible_states = self.MDP.getStates()
             self.values = np.zeros((self.MDP.grid_width, self.MDP.grid_height))
-
-            # Write value iteration code here
-            "*** YOUR CODE STARTS HERE ***"
-            util.raiseNotDefined()
-            "*** YOUR CODE ENDS HERE ***"
+            
+            for _ in range(self.iterations):
+                new_values = np.copy(self.values)
+                for s in possible_states:
+                    if self.MDP.isTerminal(s):
+                        new_values[s[0], s[1]] = self.MDP.getReward(None, None, s)
+                    else:
+                        max_value = -float('inf')
+                        for action in self.MDP.getPossibleActions(s):
+                            max_value = max(max_value, self.computeQValueFromValues(s, action))
+                        new_values[s[0], s[1]] = max_value
+                self.values = new_values
 
             np.savetxt(f"./logs/{state.data.layout.layoutFileName[:-4]}.model", self.values,
                        header=f"{{'discount': {self.discount}, 'iterations': {self.iterations}}}")
@@ -87,8 +94,11 @@ class Q1Agent(ValueEstimationAgent):
         Compute the Q-value of action in state from the
         value function stored in self.values.
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        q_value = 0
+        for next, prob in self.MDP.getTransitionStatesAndProbs(state, action):
+            q_value += prob * (self.MDP.getReward(None, None, next) + 
+                               self.discount * self.values[next[0], next[1]])
+        return q_value
 
     def computeActionFromValues(self, state):
         """
@@ -99,9 +109,13 @@ class Q1Agent(ValueEstimationAgent):
           there are no legal actions, which is the case at the
           terminal state, you should return None.
         """
+        
+        if(self.MDP.isTerminal(state)):
+            return None
 
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        possible_actions = self.MDP.getPossibleActions(state)
+        best_action = max(possible_actions, key=lambda a: self.computeQValueFromValues(state, a))
+        return best_action
 
     ########################################################################
     ####            CODE FOR YOU TO MODIFY ENDS HERE                    ####
