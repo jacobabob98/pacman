@@ -126,8 +126,9 @@ class Q2Agent(ReinforcementAgent):
           Should return 0.0 if we have never seen a state
           or the Q node value otherwise
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        x, y = state.getPacmanPosition()
+        action_index = self.getActionIndex(action)
+        return self.Q_values[x, y, action_index]
 
     def computeValueFromQValues(self, state):
         """
@@ -139,9 +140,10 @@ class Q2Agent(ReinforcementAgent):
 
           HINT: You might want to use self.getLegalActions(state)
         """
-
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        legal_actions = self.getLegalActions(state)
+        if len(legal_actions) == 0:
+            return 0.0
+        return max(self.getQValue(state, action) for action in legal_actions)
 
     def computeActionFromQValues(self, state):
         """
@@ -150,8 +152,13 @@ class Q2Agent(ReinforcementAgent):
           you should return None.
           HINT: You might want to use self.getLegalActions(state)
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        legal_actions = self.getLegalActions(state)
+        if len(legal_actions) == 0:
+            return None
+        
+        best_value = self.computeValueFromQValues(state)
+        best_actions = [action for action in legal_actions if self.getQValue(state, action) == best_value]
+        return random.choice(best_actions)
 
     def getAction(self, state: GameState):
         """
@@ -168,10 +175,13 @@ class Q2Agent(ReinforcementAgent):
 
         legalActions = self.getLegalActions(state)
         action = None
-
-        "*** YOUR CODE STARTS HERE ***"
-        util.raiseNotDefined()
-        "*** YOUR CODE ENDS HERE ***"
+        if len(legalActions) == 0:
+            return None
+        
+        if util.flipCoin(self.epsilon):
+            action = random.choice(legalActions)
+        else:
+            action = self.computeActionFromQValues(state)
 
         self.doAction(state, action)
         return action
@@ -185,5 +195,7 @@ class Q2Agent(ReinforcementAgent):
           NOTE: You should never call this function,
           it will be called on your behalf
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        sample = reward + self.discount * self.computeValueFromQValues(nextState)
+        x, y = state.getPacmanPosition()
+        action_index = self.getActionIndex(action)
+        self.Q_values[x, y, action_index] = (1 - self.alpha) * self.getQValue(state, action) + self.alpha * sample

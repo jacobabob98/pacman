@@ -33,8 +33,8 @@ class SingleLayerPerceptronPacman():
         # weight initialization
         # model parameters initialization
 
-        # initialise all features to be 1s
-        self.weights = np.ones(num_weights)
+        # Xavier weight initialisation
+        self.weights = np.random.randn(num_weights) * np.sqrt(2 / (num_weights + 1))
 
         self.max_iterations = num_iterations
         self.learning_rate = learning_rate
@@ -53,16 +53,13 @@ class SingleLayerPerceptronPacman():
         this function should compute ReLU(x dot weights)
         """
 
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        return self.activation(np.dot(feature_vector, self.weights))
 
     def activation(self, x):
         """
         Implement your chosen activation function here.
         """
-
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        return 1 / (1 + np.exp(-x)) # Sigmoid Activation Function
 
     def evaluate(self, data, labels):
         """
@@ -78,12 +75,22 @@ class SingleLayerPerceptronPacman():
         corresponding label for the feature vector at index i in the appropriate data set. For example, labels[1]
         is the label for the feature at data[1]
         """
+        total_pred = len(data)
+        correct_pred = 0
+        for feature_vector, truth_label in zip(data, labels):
+            prediction = self.predict(feature_vector)
+            if prediction >= 0.5 and truth_label == 1:
+                correct_pred += 1
+            elif prediction < 0.5 and truth_label == 0:
+                correct_pred += 1
+                
+        accuracy = correct_pred / total_pred
+        
+        return accuracy
+            
 
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
 
-
-    def train(self, trainingData, trainingLabels, validationData, validationLabels):
+    def train(self, trainingData, trainingLabels, validationData, validationLabels, batch_size=32):
         """
         This function should take training and validation data sets and train the perceptron
 
@@ -95,8 +102,52 @@ class SingleLayerPerceptronPacman():
         corresponding label for the feature vector at index i in the appropriate data set. For example, trainingLabels[1]
         is the label for the feature at trainingData[1]
         """
+        
+        decay_factor = 0.99
+        num_samples = len(trainingData)
 
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        for epoch in range(self.max_iterations):
+            
+            #shuffle data for batch training
+            indices = np.arange(num_samples)
+            np.random.shuffle(indices)
+            trainingData = trainingData[indices]
+            trainingLabels = np.array(trainingLabels)
+            trainingLabels = trainingLabels[indices]
+            
+            total_loss = 0
+            for i in range(0, num_samples, batch_size):
+                batch_data = trainingData[i : i + batch_size]
+                batch_labels = trainingLabels[i : i + batch_size]
+                
+                batch_loss = 0
+                weight_update = np.zeros_like(self.weights)
+                
+                for feature_vector, truth_label in zip(batch_data, batch_labels):
+                    
+                    prediction = self.predict(feature_vector)
+                    
+                    epsilon = 1e-15
+                    loss = - (truth_label * np.log(prediction + epsilon) + (1 - truth_label) * np.log(1 - prediction + epsilon))
+                    
+                    batch_loss += loss
+                    
+                    gradient = (prediction - truth_label) * feature_vector
+                    
+                    weight_update += gradient
+                    
+                avg_weight_update = weight_update / len(batch_data)
+                self.weights -= self.learning_rate * avg_weight_update
+                
+                total_loss += batch_loss
+            
+            # learning rate annealing
+            self.learning_rate *= decay_factor
+            accuracy = self.evaluate(validationData, validationLabels)
+            print(f"Epoch {epoch+1}/{self.max_iterations}, Loss: {total_loss}, Validation Accuracy: {accuracy}")
+        
+        return self.weights
+                
+                
 
 
