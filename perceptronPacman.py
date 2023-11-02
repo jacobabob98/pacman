@@ -34,7 +34,7 @@ class SingleLayerPerceptronPacman():
         # model parameters initialization
 
         # Xavier weight initialisation
-        self.weights = np.random.randn(num_weights) * np.sqrt(2 / (num_weights + 1))
+        self.weights = np.random.randn(num_weights) * np.sqrt(2 / (num_weights))
 
         self.max_iterations = num_iterations
         self.learning_rate = learning_rate
@@ -52,14 +52,15 @@ class SingleLayerPerceptronPacman():
         For example if x=feature_vector, and ReLU is the activation function
         this function should compute ReLU(x dot weights)
         """
-
         return self.activation(np.dot(feature_vector, self.weights))
 
     def activation(self, x):
         """
         Implement your chosen activation function here.
         """
+        #return np.maximum(0, x) # ReLU 
         return 1 / (1 + np.exp(-x)) # Sigmoid Activation Function
+    
 
     def evaluate(self, data, labels):
         """
@@ -75,22 +76,26 @@ class SingleLayerPerceptronPacman():
         corresponding label for the feature vector at index i in the appropriate data set. For example, labels[1]
         is the label for the feature at data[1]
         """
-        total_pred = len(data)
-        correct_pred = 0
+        true_positive = 0
+        false_positive = 0
+        false_negative = 0
         for feature_vector, truth_label in zip(data, labels):
             prediction = self.predict(feature_vector)
             if prediction >= 0.5 and truth_label == 1:
-                correct_pred += 1
-            elif prediction < 0.5 and truth_label == 0:
-                correct_pred += 1
-                
-        accuracy = correct_pred / total_pred
+                true_positive += 1
+            elif prediction >= 0.5 and truth_label == 0:
+                false_positive += 1
+            elif prediction < 0.5 and truth_label == 1:
+                false_negative += 1
         
-        return accuracy
-            
+        precision = true_positive / (true_positive + false_positive) if (true_positive + false_positive) > 0 else 0
+        recall = true_positive / (true_positive + false_negative) if (true_positive + false_negative) > 0 else 0
+        f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+    
+        return f1_score
 
 
-    def train(self, trainingData, trainingLabels, validationData, validationLabels, batch_size=32):
+    def train(self, trainingData, trainingLabels, validationData, validationLabels, batch_size=1000, patience = 10):
         """
         This function should take training and validation data sets and train the perceptron
 
@@ -103,8 +108,13 @@ class SingleLayerPerceptronPacman():
         is the label for the feature at trainingData[1]
         """
         
-        decay_factor = 0.99
+        initial_learning_rate = self.learning_rate
         num_samples = len(trainingData)
+        
+        best_validation_loss = float('inf')
+        patience_counter = 0
+        
+        print(f'Starting weights:\n{self.weights}')
 
         for epoch in range(self.max_iterations):
             
@@ -141,11 +151,32 @@ class SingleLayerPerceptronPacman():
                 
                 total_loss += batch_loss
             
-            # learning rate annealing
-            self.learning_rate *= decay_factor
-            accuracy = self.evaluate(validationData, validationLabels)
-            print(f"Epoch {epoch+1}/{self.max_iterations}, Loss: {total_loss}, Validation Accuracy: {accuracy}")
+            avg_loss = total_loss / num_samples
+            # learning rate alogarithmic nnealing
+            self.learning_rate = initial_learning_rate / np.log2(epoch + 2)
+            
+            f1_score = self.evaluate(validationData, validationLabels)
+            # Calculate validation loss
+            validation_loss = 0
+            for feature_vector, truth_label in zip(validationData, validationLabels):
+                prediction = self.predict(feature_vector)
+                epsilon = 1e-15
+                loss = - (truth_label * np.log(prediction + epsilon) + (1 - truth_label) * np.log(1 - prediction + epsilon))
+                validation_loss += loss
+            
+            avg_validation_loss = validation_loss / len(validationData)
+            print(f"Epoch {epoch+1}/{self.max_iterations}\tLoss: {avg_loss}\tValidation Loss: {avg_validation_loss}\tF1 Score: {f1_score}\tLearning Rate: {self.learning_rate}")
+            
+            if avg_validation_loss < best_validation_loss:
+                best_validation_loss = avg_validation_loss
+                patience_counter = 0
+            else:
+                patience_counter += 1
+                if patience_counter >= patience:
+                    print("Early Stopping")
+                    break # early stop training process
         
+        print(f'Ending weights:\n{self.weights}')
         return self.weights
                 
                 
